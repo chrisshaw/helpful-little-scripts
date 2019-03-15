@@ -1,0 +1,12 @@
+{
+  "name": "hubspot-zap",
+  "version": "1.0.0",
+  "description": "grab activity from hubspot",
+  "main": "app.js",
+  "author": "Chris Shaw",
+  "license": "MIT",
+  "dependencies": {
+    "fetch": "^1.1.0",
+    "node-fetch": "^1.7.1"
+  }
+}
