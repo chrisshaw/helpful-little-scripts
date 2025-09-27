@@ -1,6 +1,7 @@
 # Automator: Run Shell Script
 # Shell: /usr/bin/python3
 # Pass input: as arguments
+# Thank you to https://github.com/uasi/extract-apple-voice-memos-transcript/blob/master/extract-apple-voice-memos-transcript
 
 import sys, os, json, struct, shutil
 from datetime import datetime, timezone
