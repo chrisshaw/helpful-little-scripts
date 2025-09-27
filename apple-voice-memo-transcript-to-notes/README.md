@@ -26,13 +26,28 @@ I use this in Automator
 
 On iPhone & Mac: Settings/System Settings → Apple ID → iCloud → Voice Memos: On.
 
+#### Clone the repo
+
+```zsh
+git clone https://github.com/chrisshaw/helpful-little-scripts.git
+cd helpful-little-scripts/apple-voice-memo-transcript-to-notes
+```
+
+Copy the path as you'll use it in the Folder Action next.
+
+#### Change file permissions to executable (755)
+
+```zsh
+sudo chmod +x main.py
+```
+
+
 #### Create the Folder Action
 
 - Open Automator → New → Folder Action.
 - “Folder:” choose: `~/Library/Group Containers/group.com.apple.VoiceMemos.shared/Recordings/`
-- Add Run Shell Script. Shell: type `/usr/local/bin/python3`. Set “Pass input:” → “as arguments.”
-- Paste the script from `main.py`.
-- Create a symlink to the _actual_ python: `sudo ln -s /usr/bin/python3 /usr/local/bin/python3`
+- Add Run Shell Script. Shell: type `/bin/zsh`. Set “Pass input:” → “as arguments.”
+- Paste: `"$HOME/projects/helpful-little-scripts/apple-voice-memo-transcript-to-notes/main.py" "$@"`
 - Save (name it e.g. Voice Memos → MEGA).
 
 #### Permissions (if needed)
@@ -69,8 +84,6 @@ tags: ["voice-memo"]
 ## Disable / remove
 
 Open Automator → Folder Actions → uncheck or delete the “Voice Memos → MEGA” action. You can also remove it from Folder Actions Setup in Finder (right-click the folder).
-
-Remove your symlink for this with `sudo rm /usr/local/bin/python3`
 
 ## Troubleshooting
 - “(no embedded transcript)”: open the memo once in Voice Memos; Apple may not have embedded the transcript yet.

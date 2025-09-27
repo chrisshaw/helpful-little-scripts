@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 # Automator: Run Shell Script
 # Shell: /usr/bin/python3
 # Pass input: as arguments
