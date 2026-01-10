@@ -1,0 +1,22 @@
+{
+  "name": "nemo-onnx-js",
+  "version": "1.0.0",
+  "description": "Speech-to-text transcription using NeMo ONNX models with sherpa-onnx",
+  "main": "transcribe.js",
+  "scripts": {
+    "transcribe": "node transcribe.js",
+    "download-model": "bash download-model.sh"
+  },
+  "keywords": [
+    "speech-to-text",
+    "asr",
+    "nemo",
+    "onnx",
+    "transcription"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "sherpa-onnx": "^1.12.20",
+    "wav": "^1.0.2"
+  }
+}
