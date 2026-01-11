@@ -123,6 +123,38 @@ ffmpeg -i input.mp3 -ar 16000 -ac 1 output.wav
 3. **Streaming models** use transducer architecture for incremental decoding
 4. Audio is processed through mel-spectrogram features
 
+## NeMo Model Types Explained
+
+NeMo offers several ASR architectures with different streaming capabilities:
+
+| Model | Architecture | Streaming | Notes |
+|-------|-------------|-----------|-------|
+| **Conformer CTC** | CTC | No | Offline only, good accuracy |
+| **Parakeet TDT** | Transducer (TDT) | No* | Offline transducer, highest accuracy |
+| **FastConformer Hybrid Streaming** | Cache-aware Transducer | **Yes** | True streaming with multiple latencies |
+
+*Parakeet TDT is a transducer model but is NOT designed for cache-aware streaming. It processes complete utterances.
+
+### Exporting NeMo Streaming Models
+
+To use NeMo's cache-aware streaming models (FastConformer Hybrid), you need to export them yourself:
+
+```bash
+# Install NeMo
+pip install 'nemo_toolkit[asr]' onnx onnxruntime
+
+# Export a streaming model
+python export-nemo-streaming.py --model stt_en_fastconformer_hybrid_large_streaming_multi
+
+# Available streaming models:
+# - stt_en_fastconformer_hybrid_large_streaming_multi (multiple latencies)
+# - nvidia/stt_en_fastconformer_hybrid_large_streaming_80ms (lowest latency)
+# - nvidia/stt_en_fastconformer_hybrid_large_streaming_480ms
+# - nvidia/stt_en_fastconformer_hybrid_large_streaming_1040ms
+```
+
+For full transducer export (encoder/decoder/joiner), use the [sherpa-onnx export scripts](https://github.com/k2-fsa/sherpa-onnx/tree/master/scripts/nemo/fast-conformer-hybrid-transducer-ctc).
+
 ## Browser Support
 
 For browser usage, consider [sherpa-onnx-wasm](https://www.npmjs.com/package/sherpa-onnx-wasm) which provides WebAssembly builds.
