@@ -170,6 +170,34 @@ python export-nemo-streaming.py --model stt_en_fastconformer_hybrid_large_stream
 
 For full transducer export (encoder/decoder/joiner), use the [sherpa-onnx export scripts](https://github.com/k2-fsa/sherpa-onnx/tree/master/scripts/nemo/fast-conformer-hybrid-transducer-ctc).
 
+### Nemotron Speech Streaming - JavaScript Status
+
+**Current Support:**
+
+| Runtime | Nemotron Streaming | Notes |
+|---------|-------------------|-------|
+| sherpa-onnx | Not yet | No explicit support as of Jan 2026 |
+| onnx-asr (Python) | No | Batch only, no streaming |
+| Pipecat | Yes | Uses NeMo/PyTorch via WebSocket |
+| Direct ONNX Runtime | Planned | See `nemotron-streaming-onnx.js` |
+
+**Options for Nemotron in JavaScript:**
+
+1. **Use FastConformer Hybrid Streaming** (works now with sherpa-onnx):
+   ```bash
+   ./download-model.sh streaming-en
+   node transcribe-streaming.js audio.wav
+   ```
+
+2. **WebSocket to Python backend** (recommended for production):
+   - Deploy NeMo model via [Pipecat](https://github.com/pipecat-ai/nemotron-january-2026)
+   - Connect from Node.js via WebSocket
+
+3. **Direct ONNX Runtime** (experimental):
+   - See `nemotron-streaming-onnx.js` for implementation plan
+   - Requires: mel spectrogram extraction, cache management, RNN-T decoder
+   - Estimated: ~550 lines of JavaScript
+
 ## Browser Support
 
 For browser usage, consider [sherpa-onnx-wasm](https://www.npmjs.com/package/sherpa-onnx-wasm) which provides WebAssembly builds.
