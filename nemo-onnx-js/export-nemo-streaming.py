@@ -1,22 +1,34 @@
 #!/usr/bin/env python3
 """
-Export NeMo FastConformer Streaming Models to ONNX
+Export NeMo Cache-Aware Streaming Models to ONNX
 
-This script exports NeMo's cache-aware streaming FastConformer models
-to ONNX format for use with sherpa-onnx.
+This script exports NeMo's cache-aware streaming models to ONNX format
+for use with sherpa-onnx or direct ONNX Runtime inference.
 
-Models supported:
-- stt_en_fastconformer_hybrid_large_streaming_multi (English, multiple latencies)
-- nvidia/stt_en_fastconformer_hybrid_large_streaming_80ms
-- nvidia/stt_en_fastconformer_hybrid_large_streaming_480ms
-- nvidia/stt_en_fastconformer_hybrid_large_streaming_1040ms
+Recommended Models (True Streaming with Cache-Aware Architecture):
+
+  Nemotron Speech Streaming (January 2026 - RECOMMENDED):
+  - nvidia/nemotron-speech-streaming-en-0.6b
+    - 0.6B params, cache-aware FastConformer + RNN-T
+    - Chunk sizes: 80ms, 160ms, 560ms, 1120ms
+    - Native punctuation & capitalization
+    - Best for voice agents and low-latency applications
+
+  FastConformer Hybrid Streaming:
+  - stt_en_fastconformer_hybrid_large_streaming_multi (multiple latencies)
+  - nvidia/stt_en_fastconformer_hybrid_large_streaming_80ms
+  - nvidia/stt_en_fastconformer_hybrid_large_streaming_480ms
+  - nvidia/stt_en_fastconformer_hybrid_large_streaming_1040ms
 
 Requirements:
   pip install nemo_toolkit[asr] onnx onnxruntime
 
 Usage:
+  # Nemotron Speech Streaming (recommended)
+  python export-nemo-streaming.py --model nvidia/nemotron-speech-streaming-en-0.6b
+
+  # FastConformer Hybrid
   python export-nemo-streaming.py --model stt_en_fastconformer_hybrid_large_streaming_multi
-  python export-nemo-streaming.py --model nvidia/stt_en_fastconformer_hybrid_large_streaming_80ms
 
 Based on: https://github.com/k2-fsa/sherpa-onnx/tree/master/scripts/nemo/fast-conformer-hybrid-transducer-ctc
 """
@@ -32,8 +44,8 @@ def main():
     parser.add_argument(
         "--model",
         type=str,
-        default="stt_en_fastconformer_hybrid_large_streaming_multi",
-        help="NeMo model name or path (default: stt_en_fastconformer_hybrid_large_streaming_multi)"
+        default="nvidia/nemotron-speech-streaming-en-0.6b",
+        help="NeMo model name or path (default: nvidia/nemotron-speech-streaming-en-0.6b)"
     )
     parser.add_argument(
         "--output-dir",

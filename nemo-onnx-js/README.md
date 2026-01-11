@@ -131,24 +131,39 @@ NeMo offers several ASR architectures with different streaming capabilities:
 |-------|-------------|-----------|-------|
 | **Conformer CTC** | CTC | No | Offline only, good accuracy |
 | **Parakeet TDT** | Transducer (TDT) | No* | Offline transducer, highest accuracy |
-| **FastConformer Hybrid Streaming** | Cache-aware Transducer | **Yes** | True streaming with multiple latencies |
+| **Nemotron Speech Streaming** | Cache-aware FastConformer + RNN-T | **Yes** | Best for voice agents (Jan 2026) |
+| **FastConformer Hybrid Streaming** | Cache-aware Transducer | **Yes** | Multiple latency options |
 
 *Parakeet TDT is a transducer model but is NOT designed for cache-aware streaming. It processes complete utterances.
 
+### Nemotron Speech Streaming (Recommended)
+
+[nvidia/nemotron-speech-streaming-en-0.6b](https://huggingface.co/nvidia/nemotron-speech-streaming-en-0.6b) is NVIDIA's latest streaming model (January 2026), designed specifically for low-latency voice applications:
+
+- **0.6B parameters** with cache-aware FastConformer encoder + RNN-T decoder
+- **Configurable chunk sizes**: 80ms, 160ms, 560ms, 1120ms
+- **Native punctuation & capitalization** - no post-processing needed
+- **<8% WER** across benchmarks (AMI, Earnings22, GigaSpeech, LibriSpeech)
+- **3x higher throughput** vs buffered streaming on H100
+
 ### Exporting NeMo Streaming Models
 
-To use NeMo's cache-aware streaming models (FastConformer Hybrid), you need to export them yourself:
+To use NeMo's cache-aware streaming models, export them to ONNX:
 
 ```bash
 # Install NeMo
 pip install 'nemo_toolkit[asr]' onnx onnxruntime
 
-# Export a streaming model
+# Export Nemotron Speech Streaming (recommended)
+python export-nemo-streaming.py --model nvidia/nemotron-speech-streaming-en-0.6b
+
+# Or export FastConformer Hybrid Streaming
 python export-nemo-streaming.py --model stt_en_fastconformer_hybrid_large_streaming_multi
 
-# Available streaming models:
+# Available models:
+# - nvidia/nemotron-speech-streaming-en-0.6b (RECOMMENDED - lowest latency, best quality)
 # - stt_en_fastconformer_hybrid_large_streaming_multi (multiple latencies)
-# - nvidia/stt_en_fastconformer_hybrid_large_streaming_80ms (lowest latency)
+# - nvidia/stt_en_fastconformer_hybrid_large_streaming_80ms
 # - nvidia/stt_en_fastconformer_hybrid_large_streaming_480ms
 # - nvidia/stt_en_fastconformer_hybrid_large_streaming_1040ms
 ```
