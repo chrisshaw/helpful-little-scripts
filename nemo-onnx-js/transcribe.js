@@ -1,112 +1,216 @@
 #!/usr/bin/env node
 /**
- * NeMo ONNX Speech-to-Text Transcription
+ * Streaming Speech-to-Text Transcription
  *
- * Uses sherpa-onnx to run NeMo CTC models for speech recognition.
- * Supports multiple NeMo model variants (conformer-small, conformer-medium, etc.)
+ * Uses sherpa-onnx streaming models for real-time speech recognition.
+ * Supports transducer (zipformer) and paraformer architectures.
  */
 
 const fs = require('fs');
 const path = require('path');
 const sherpa_onnx = require('sherpa-onnx');
 
-// Default model configuration
-const DEFAULT_MODEL_DIR = './sherpa-onnx-nemo-ctc-en-conformer-small';
+// Default streaming model (Nemotron Speech Streaming)
+const DEFAULT_MODEL_DIR = './sherpa-onnx-nemotron-speech-streaming-en-0.6b-int8-2026-01-14';
 
 /**
- * Create an offline recognizer with the specified model
- * @param {string} modelDir - Directory containing the model files
- * @returns {object} - The recognizer instance
+ * Detect model type from directory contents
  */
-function createRecognizer(modelDir) {
-  const modelPath = path.join(modelDir, 'model.int8.onnx');
-  const tokensPath = path.join(modelDir, 'tokens.txt');
-
-  // Verify files exist
-  if (!fs.existsSync(modelPath)) {
-    console.error(`Model file not found: ${modelPath}`);
-    console.error('Run: npm run download-model');
-    process.exit(1);
+function detectModelType(modelDir) {
+  const files = fs.readdirSync(modelDir);
+  // Check for transducer (has encoder, decoder, joiner)
+  if (files.some(f => f.includes('encoder') && f.endsWith('.onnx'))) {
+    return 'transducer';
   }
-
-  if (!fs.existsSync(tokensPath)) {
-    console.error(`Tokens file not found: ${tokensPath}`);
-    process.exit(1);
+  // Check for paraformer
+  if (files.some(f => f === 'model.onnx' || f === 'model.int8.onnx')) {
+    return 'paraformer';
   }
-
-  const config = {
-    modelConfig: {
-      nemoCtc: {
-        model: modelPath,
-      },
-      tokens: tokensPath,
-      debug: false,
-    },
-  };
-
-  return sherpa_onnx.createOfflineRecognizer(config);
+  return 'transducer'; // default
 }
 
 /**
- * Transcribe an audio file
- * @param {string} audioPath - Path to the WAV file
- * @param {string} modelDir - Directory containing model files
- * @returns {string} - The transcribed text
+ * Find model file in directory matching pattern
+ * Prefers .int8.onnx over .onnx
  */
-function transcribe(audioPath, modelDir = DEFAULT_MODEL_DIR) {
-  // Verify audio file exists
-  if (!fs.existsSync(audioPath)) {
-    console.error(`Audio file not found: ${audioPath}`);
-    process.exit(1);
+function findModelFile(modelDir, pattern) {
+  const files = fs.readdirSync(modelDir);
+  // Prefer int8 quantized version
+  let match = files.find(f => f.includes(pattern) && f.endsWith('.int8.onnx'));
+  if (!match) {
+    match = files.find(f => f.includes(pattern) && f.endsWith('.onnx'));
+  }
+  return match ? path.join(modelDir, match) : null;
+}
+
+/**
+ * Create streaming recognizer configuration
+ */
+function createConfig(modelDir) {
+  const modelType = detectModelType(modelDir);
+  const tokensPath = path.join(modelDir, 'tokens.txt');
+
+  if (!fs.existsSync(tokensPath)) {
+    throw new Error(`Tokens file not found: ${tokensPath}`);
   }
 
-  console.log(`Loading model from: ${modelDir}`);
-  const recognizer = createRecognizer(modelDir);
+  const config = {
+    featConfig: {
+      sampleRate: 16000,
+      featureDim: 80,
+    },
+    modelConfig: {
+      tokens: tokensPath,
+      debug: false,
+      numThreads: 2,
+      provider: 'cpu',
+    },
+    decodingMethod: 'greedy_search',
+    maxActivePaths: 4,
+  };
 
-  console.log(`Transcribing: ${audioPath}`);
+  if (modelType === 'transducer') {
+    // Find encoder, decoder, joiner files
+    const encoder = findModelFile(modelDir, 'encoder');
+    const decoder = findModelFile(modelDir, 'decoder');
+    const joiner = findModelFile(modelDir, 'joiner');
+
+    if (!encoder || !decoder || !joiner) {
+      throw new Error(`Missing transducer model files in ${modelDir}. Need encoder, decoder, joiner .onnx files.`);
+    }
+
+    config.modelConfig.transducer = {
+      encoder: encoder,
+      decoder: decoder,
+      joiner: joiner,
+    };
+  } else if (modelType === 'paraformer') {
+    config.modelConfig.paraformer = {
+      encoder: findModelFile(modelDir, 'encoder') || path.join(modelDir, 'encoder.onnx'),
+      decoder: findModelFile(modelDir, 'decoder') || path.join(modelDir, 'decoder.onnx'),
+    };
+  }
+
+  return config;
+}
+
+/**
+ * Create a streaming recognizer
+ */
+function createRecognizer(modelDir) {
+  const config = createConfig(modelDir);
+  return sherpa_onnx.createOnlineRecognizer(config);
+}
+
+/**
+ * Transcribe audio file with streaming (simulated real-time)
+ * @param {string} audioPath - Path to WAV file
+ * @param {string} modelDir - Model directory
+ * @param {object} options - Options (chunkMs, showPartial)
+ */
+function transcribeStreaming(audioPath, modelDir = DEFAULT_MODEL_DIR, options = {}) {
+  const { chunkMs = 100, showPartial = true } = options;
+
+  if (!fs.existsSync(audioPath)) {
+    throw new Error(`Audio file not found: ${audioPath}`);
+  }
+
+  console.log(`Loading streaming model from: ${modelDir}`);
+  const recognizer = createRecognizer(modelDir);
   const stream = recognizer.createStream();
 
-  // Read the wave file
+  // Read wave file
   const wave = sherpa_onnx.readWave(audioPath);
-  console.log(`Audio: ${wave.sampleRate}Hz, ${(wave.samples.length / wave.sampleRate).toFixed(2)}s`);
+  const sampleRate = wave.sampleRate;
+  const samples = wave.samples;
 
-  // Process the audio
-  stream.acceptWaveform(wave.sampleRate, wave.samples);
+  console.log(`Audio: ${sampleRate}Hz, ${(samples.length / sampleRate).toFixed(2)}s`);
+  console.log(`Streaming with ${chunkMs}ms chunks...\n`);
 
-  // Decode
-  recognizer.decode(stream);
-  const result = recognizer.getResult(stream);
+  // Calculate chunk size
+  const chunkSize = Math.floor(sampleRate * chunkMs / 1000);
+  let offset = 0;
+  let lastText = '';
+
+  const startTime = Date.now();
+
+  // Process in chunks (simulating real-time streaming)
+  while (offset < samples.length) {
+    const end = Math.min(offset + chunkSize, samples.length);
+    const chunk = samples.slice(offset, end);
+
+    // Feed chunk to recognizer
+    stream.acceptWaveform(sampleRate, chunk);
+
+    // Decode available frames
+    while (recognizer.isReady(stream)) {
+      recognizer.decode(stream);
+    }
+
+    // Get partial result
+    const result = recognizer.getResult(stream);
+    if (showPartial && result.text && result.text !== lastText) {
+      process.stdout.write(`\r[Partial] ${result.text}`);
+      lastText = result.text;
+    }
+
+    offset = end;
+  }
+
+  // Signal end of audio
+  stream.inputFinished();
+
+  // Final decode
+  while (recognizer.isReady(stream)) {
+    recognizer.decode(stream);
+  }
+
+  const finalResult = recognizer.getResult(stream);
+  const elapsed = (Date.now() - startTime) / 1000;
+  const audioDuration = samples.length / sampleRate;
+  const rtf = elapsed / audioDuration;
+
+  // Clear partial output line
+  if (showPartial) {
+    process.stdout.write('\r' + ' '.repeat(80) + '\r');
+  }
 
   // Cleanup
   stream.free();
   recognizer.free();
 
-  return result.text;
+  return {
+    text: finalResult.text,
+    duration: audioDuration,
+    elapsed: elapsed,
+    rtf: rtf,
+  };
 }
 
 /**
- * Main entry point
+ * Main CLI
  */
 function main() {
   const args = process.argv.slice(2);
 
   if (args.length === 0 || args.includes('--help') || args.includes('-h')) {
     console.log(`
-NeMo ONNX Speech-to-Text Transcription
+Streaming Speech-to-Text Transcription
 
 Usage:
-  node transcribe.js <audio.wav> [--model <model-dir>]
+  node transcribe.js <audio.wav> [options]
 
-Arguments:
-  audio.wav          Path to a WAV audio file (16kHz, mono recommended)
+Options:
   --model <dir>      Model directory (default: ${DEFAULT_MODEL_DIR})
+  --chunk <ms>       Chunk size in milliseconds (default: 100)
+  --no-partial       Don't show partial results
 
 Examples:
   node transcribe.js recording.wav
-  node transcribe.js speech.wav --model ./sherpa-onnx-nemo-ctc-en-conformer-medium
+  node transcribe.js speech.wav --chunk 160
 
 First, download a model:
-  npm run download-model
+  ./download-model.sh
 `);
     process.exit(0);
   }
@@ -114,11 +218,18 @@ First, download a model:
   // Parse arguments
   let audioPath = null;
   let modelDir = DEFAULT_MODEL_DIR;
+  let chunkMs = 100;
+  let showPartial = true;
 
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--model' && args[i + 1]) {
       modelDir = args[i + 1];
       i++;
+    } else if (args[i] === '--chunk' && args[i + 1]) {
+      chunkMs = parseInt(args[i + 1], 10);
+      i++;
+    } else if (args[i] === '--no-partial') {
+      showPartial = false;
     } else if (!args[i].startsWith('-')) {
       audioPath = args[i];
     }
@@ -129,18 +240,22 @@ First, download a model:
     process.exit(1);
   }
 
-  // Run transcription
-  const text = transcribe(audioPath, modelDir);
+  try {
+    const result = transcribeStreaming(audioPath, modelDir, { chunkMs, showPartial });
 
-  console.log('\n--- Transcription ---');
-  console.log(text);
-  console.log('---------------------');
+    console.log('--- Transcription ---');
+    console.log(result.text);
+    console.log('---------------------');
+    console.log(`Duration: ${result.duration.toFixed(2)}s | Processed in: ${result.elapsed.toFixed(2)}s | RTF: ${result.rtf.toFixed(3)}`);
+  } catch (err) {
+    console.error('Error:', err.message);
+    process.exit(1);
+  }
 }
 
-// Export for use as module
-module.exports = { transcribe, createRecognizer };
+// Export for module use
+module.exports = { transcribeStreaming, createRecognizer };
 
-// Run if called directly
 if (require.main === module) {
   main();
 }
