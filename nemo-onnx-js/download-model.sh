@@ -2,25 +2,37 @@
 #
 # Download speech-to-text models for sherpa-onnx
 #
-# OFFLINE MODELS (NeMo CTC - for batch transcription):
+# OFFLINE MODELS (batch transcription):
 #   - small              NeMo Conformer small (~30MB)
 #   - medium             NeMo Conformer medium (~120MB)
 #   - large              NeMo Conformer large (~450MB)
-#   - citrinet           NeMo Citrinet-512 (~140MB)
 #
-# STREAMING MODELS (for real-time transcription):
+# STREAMING MODELS (real-time transcription):
+#   - nemotron           Nemotron Speech Streaming 0.6B int8 (~600MB) [RECOMMENDED]
 #   - streaming-en       Zipformer English (~70MB)
 #   - streaming-en-small Zipformer English 20M (~25MB)
-#   - streaming-bilingual Zipformer Chinese+English (~70MB)
-#   - streaming-paraformer Paraformer Chinese+English (~220MB)
 #
 
 set -e
 
-MODEL_ID="${1:-small}"
+MODEL_ID="${1:-nemotron}"
 BASE_URL="https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models"
 
 case "$MODEL_ID" in
+  # Streaming models
+  nemotron|streaming)
+    MODEL_NAME="sherpa-onnx-nemotron-speech-streaming-en-0.6b-int8-2026-01-14"
+    MODEL_TYPE="streaming"
+    ;;
+  streaming-en)
+    MODEL_NAME="sherpa-onnx-streaming-zipformer-en-2023-02-21"
+    MODEL_TYPE="streaming"
+    ;;
+  streaming-en-small)
+    MODEL_NAME="sherpa-onnx-streaming-zipformer-en-20M-2023-02-17"
+    MODEL_TYPE="streaming"
+    ;;
+
   # Offline NeMo CTC models
   small)
     MODEL_NAME="sherpa-onnx-nemo-ctc-en-conformer-small"
@@ -34,28 +46,6 @@ case "$MODEL_ID" in
     MODEL_NAME="sherpa-onnx-nemo-ctc-en-conformer-large"
     MODEL_TYPE="offline"
     ;;
-  citrinet)
-    MODEL_NAME="sherpa-onnx-nemo-ctc-en-citrinet-512"
-    MODEL_TYPE="offline"
-    ;;
-
-  # Streaming models
-  streaming-en|streaming)
-    MODEL_NAME="sherpa-onnx-streaming-zipformer-en-2023-02-21"
-    MODEL_TYPE="streaming"
-    ;;
-  streaming-en-small)
-    MODEL_NAME="sherpa-onnx-streaming-zipformer-en-20M-2023-02-17"
-    MODEL_TYPE="streaming"
-    ;;
-  streaming-bilingual)
-    MODEL_NAME="sherpa-onnx-streaming-zipformer-bilingual-zh-en-2023-02-20"
-    MODEL_TYPE="streaming"
-    ;;
-  streaming-paraformer)
-    MODEL_NAME="sherpa-onnx-streaming-paraformer-bilingual-zh-en"
-    MODEL_TYPE="streaming"
-    ;;
 
   # Help
   -h|--help|help)
@@ -63,21 +53,20 @@ case "$MODEL_ID" in
     echo ""
     echo "Usage: ./download-model.sh <model-id>"
     echo ""
+    echo "STREAMING MODELS (real-time transcription):"
+    echo "  nemotron           Nemotron Speech Streaming 0.6B int8 (~600MB) [RECOMMENDED]"
+    echo "  streaming-en       Zipformer English (~70MB)"
+    echo "  streaming-en-small Zipformer English 20M (~25MB)"
+    echo ""
     echo "OFFLINE MODELS (batch transcription):"
     echo "  small              NeMo Conformer small (~30MB)"
     echo "  medium             NeMo Conformer medium (~120MB)"
     echo "  large              NeMo Conformer large (~450MB)"
-    echo "  citrinet           NeMo Citrinet-512 (~140MB)"
-    echo ""
-    echo "STREAMING MODELS (real-time transcription):"
-    echo "  streaming-en       Zipformer English (~70MB) [default streaming]"
-    echo "  streaming-en-small Zipformer English 20M (~25MB)"
-    echo "  streaming-bilingual Zipformer Chinese+English (~70MB)"
-    echo "  streaming-paraformer Paraformer Chinese+English (~220MB)"
     echo ""
     echo "Examples:"
-    echo "  ./download-model.sh small           # For transcribe.js"
-    echo "  ./download-model.sh streaming-en    # For transcribe-streaming.js"
+    echo "  ./download-model.sh nemotron        # Nemotron streaming (best)"
+    echo "  ./download-model.sh streaming-en    # Zipformer streaming (smaller)"
+    echo "  ./download-model.sh small           # Offline batch transcription"
     exit 0
     ;;
 

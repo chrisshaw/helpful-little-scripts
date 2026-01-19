@@ -10,32 +10,36 @@ const fs = require('fs');
 const path = require('path');
 const sherpa_onnx = require('sherpa-onnx');
 
-// Default streaming model
-const DEFAULT_MODEL_DIR = './sherpa-onnx-streaming-zipformer-en-2023-02-21';
+// Default streaming model (Nemotron Speech Streaming)
+const DEFAULT_MODEL_DIR = './sherpa-onnx-nemotron-speech-streaming-en-0.6b-int8-2026-01-14';
 
 /**
  * Detect model type from directory contents
  */
 function detectModelType(modelDir) {
+  const files = fs.readdirSync(modelDir);
   // Check for transducer (has encoder, decoder, joiner)
-  if (fs.existsSync(path.join(modelDir, 'encoder-epoch-99-avg-1.onnx')) ||
-      fs.existsSync(path.join(modelDir, 'encoder-epoch-99-avg-1.int8.onnx'))) {
+  if (files.some(f => f.includes('encoder') && f.endsWith('.onnx'))) {
     return 'transducer';
   }
   // Check for paraformer
-  if (fs.existsSync(path.join(modelDir, 'model.onnx')) ||
-      fs.existsSync(path.join(modelDir, 'model.int8.onnx'))) {
+  if (files.some(f => f === 'model.onnx' || f === 'model.int8.onnx')) {
     return 'paraformer';
   }
   return 'transducer'; // default
 }
 
 /**
- * Find model files in directory
+ * Find model file in directory matching pattern
+ * Prefers .int8.onnx over .onnx
  */
-function findModelFiles(modelDir, pattern) {
+function findModelFile(modelDir, pattern) {
   const files = fs.readdirSync(modelDir);
-  const match = files.find(f => f.includes(pattern) && f.endsWith('.onnx'));
+  // Prefer int8 quantized version
+  let match = files.find(f => f.includes(pattern) && f.endsWith('.int8.onnx'));
+  if (!match) {
+    match = files.find(f => f.includes(pattern) && f.endsWith('.onnx'));
+  }
   return match ? path.join(modelDir, match) : null;
 }
 
@@ -67,12 +71,13 @@ function createConfig(modelDir) {
 
   if (modelType === 'transducer') {
     // Find encoder, decoder, joiner files
-    const encoder = findModelFiles(modelDir, 'encoder') ||
-                    path.join(modelDir, 'encoder-epoch-99-avg-1.onnx');
-    const decoder = findModelFiles(modelDir, 'decoder') ||
-                    path.join(modelDir, 'decoder-epoch-99-avg-1.onnx');
-    const joiner = findModelFiles(modelDir, 'joiner') ||
-                   path.join(modelDir, 'joiner-epoch-99-avg-1.onnx');
+    const encoder = findModelFile(modelDir, 'encoder');
+    const decoder = findModelFile(modelDir, 'decoder');
+    const joiner = findModelFile(modelDir, 'joiner');
+
+    if (!encoder || !decoder || !joiner) {
+      throw new Error(`Missing transducer model files in ${modelDir}. Need encoder, decoder, joiner .onnx files.`);
+    }
 
     config.modelConfig.transducer = {
       encoder: encoder,
@@ -81,8 +86,8 @@ function createConfig(modelDir) {
     };
   } else if (modelType === 'paraformer') {
     config.modelConfig.paraformer = {
-      encoder: path.join(modelDir, 'encoder.onnx'),
-      decoder: path.join(modelDir, 'decoder.onnx'),
+      encoder: findModelFile(modelDir, 'encoder') || path.join(modelDir, 'encoder.onnx'),
+      decoder: findModelFile(modelDir, 'decoder') || path.join(modelDir, 'decoder.onnx'),
     };
   }
 
@@ -202,11 +207,12 @@ Options:
 
 Examples:
   node transcribe-streaming.js recording.wav
-  node transcribe-streaming.js speech.wav --model ./sherpa-onnx-streaming-zipformer-en-20M-2023-02-17
-  node transcribe-streaming.js speech.wav --chunk 200
+  node transcribe-streaming.js speech.wav --model ./sherpa-onnx-streaming-zipformer-en-2023-02-21
+  node transcribe-streaming.js speech.wav --chunk 160
 
 First, download a streaming model:
-  ./download-model.sh streaming-en
+  ./download-model.sh nemotron    # Nemotron 0.6B (recommended)
+  ./download-model.sh streaming-en  # Zipformer (smaller)
 `);
     process.exit(0);
   }
