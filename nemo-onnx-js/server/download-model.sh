@@ -9,10 +9,13 @@ BASE_URL="https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models"
 MODEL_NAME="sherpa-onnx-nemotron-speech-streaming-en-0.6b-int8-2026-01-14"
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-cd "$SCRIPT_DIR"
+MODEL_DIR="$SCRIPT_DIR/models"
+
+mkdir -p "$MODEL_DIR"
+cd "$MODEL_DIR"
 
 if [ -d "$MODEL_NAME" ]; then
-  echo "Model already exists: $MODEL_NAME"
+  echo "Model already exists: $MODEL_DIR/$MODEL_NAME"
   exit 0
 fi
 
@@ -24,5 +27,5 @@ tar -xjf "${MODEL_NAME}.tar.bz2"
 rm -f "${MODEL_NAME}.tar.bz2"
 
 echo ""
-echo "Done. Test with:"
-echo "  node transcribe.js <audio.wav>"
+echo "Done. Start the server with:"
+echo "  npm start"

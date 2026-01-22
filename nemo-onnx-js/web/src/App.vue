@@ -2,113 +2,85 @@
 import { ref, onUnmounted } from 'vue'
 
 const isRecording = ref(false)
-const isModelLoaded = ref(false)
-const isLoading = ref(false)
+const isConnected = ref(false)
+const isConnecting = ref(false)
 const transcript = ref('')
 const partialTranscript = ref('')
 const error = ref('')
-const statusMessage = ref('Click "Load Model" to start')
+const statusMessage = ref('Click "Connect" to start')
 
 let audioContext = null
 let mediaStream = null
 let workletNode = null
-let recognizer = null
-let recognizerStream = null
+let websocket = null
 
-const MODEL_BASE = 'https://huggingface.co/csukuangfj/sherpa-onnx-streaming-zipformer-bilingual-zh-en-2023-02-20/resolve/main/'
-const SHERPA_WASM_BASE = 'https://cdn.jsdelivr.net/npm/sherpa-onnx-wasm@1.10.30/dist/'
+// WebSocket URL - uses proxy in development, direct in production
+const WS_URL = import.meta.env.DEV
+  ? `ws://${window.location.hostname}:3000/ws`
+  : `ws://${window.location.host}/ws`
 
-async function loadSherpaOnnx() {
-  if (window.sherpa_onnx) return window.sherpa_onnx
+function connect() {
+  if (isConnected.value || isConnecting.value) return
 
-  return new Promise((resolve, reject) => {
-    const script = document.createElement('script')
-    script.src = SHERPA_WASM_BASE + 'sherpa-onnx-wasm-main.js'
-    script.onload = async () => {
-      try {
-        const sherpa = await window.createSherpaOnnx({
-          locateFile: (path) => SHERPA_WASM_BASE + path,
-        })
-        window.sherpa_onnx = sherpa
-        resolve(sherpa)
-      } catch (e) {
-        reject(e)
-      }
-    }
-    script.onerror = reject
-    document.head.appendChild(script)
-  })
-}
-
-async function fetchAsUint8Array(url) {
-  const response = await fetch(url)
-  if (!response.ok) throw new Error(`Failed to fetch ${url}`)
-  return new Uint8Array(await response.arrayBuffer())
-}
-
-async function loadModel() {
-  if (isModelLoaded.value) return
-
-  isLoading.value = true
+  isConnecting.value = true
   error.value = ''
+  statusMessage.value = 'Connecting to server...'
 
-  try {
-    statusMessage.value = 'Loading sherpa-onnx WASM...'
-    const sherpa = await loadSherpaOnnx()
+  websocket = new WebSocket(WS_URL)
 
-    statusMessage.value = 'Downloading model files (this may take a minute)...'
+  websocket.onopen = () => {
+    console.log('WebSocket connected')
+  }
 
-    const [encoder, decoder, joiner, tokens] = await Promise.all([
-      fetchAsUint8Array(MODEL_BASE + 'encoder-epoch-99-avg-1.int8.onnx'),
-      fetchAsUint8Array(MODEL_BASE + 'decoder-epoch-99-avg-1.onnx'),
-      fetchAsUint8Array(MODEL_BASE + 'joiner-epoch-99-avg-1.int8.onnx'),
-      fetchAsUint8Array(MODEL_BASE + 'tokens.txt'),
-    ])
+  websocket.onmessage = (event) => {
+    try {
+      const msg = JSON.parse(event.data)
 
-    statusMessage.value = 'Initializing recognizer...'
+      switch (msg.type) {
+        case 'ready':
+          isConnected.value = true
+          isConnecting.value = false
+          statusMessage.value = 'Connected. Click "Start Recording" to begin.'
+          break
 
-    sherpa.FS.writeFile('/encoder.onnx', encoder)
-    sherpa.FS.writeFile('/decoder.onnx', decoder)
-    sherpa.FS.writeFile('/joiner.onnx', joiner)
-    sherpa.FS.writeFile('/tokens.txt', tokens)
+        case 'partial':
+          partialTranscript.value = msg.text
+          break
 
-    const config = {
-      featConfig: { sampleRate: 16000, featureDim: 80 },
-      modelConfig: {
-        transducer: {
-          encoder: '/encoder.onnx',
-          decoder: '/decoder.onnx',
-          joiner: '/joiner.onnx',
-        },
-        tokens: '/tokens.txt',
-        numThreads: 2,
-        provider: 'cpu',
-        debug: false,
-      },
-      decodingMethod: 'greedy_search',
-      maxActivePaths: 4,
-      enableEndpoint: true,
-      rule1MinTrailingSilence: 2.4,
-      rule2MinTrailingSilence: 1.2,
-      rule3MinUtteranceLength: 20,
+        case 'final':
+          transcript.value += msg.text + ' '
+          partialTranscript.value = ''
+          break
+
+        case 'error':
+          error.value = `Server error: ${msg.message}`
+          break
+      }
+    } catch (e) {
+      console.error('Failed to parse message:', e)
     }
+  }
 
-    recognizer = sherpa.createOnlineRecognizer(config)
-    recognizerStream = recognizer.createStream()
+  websocket.onerror = (e) => {
+    console.error('WebSocket error:', e)
+    error.value = 'Connection error. Is the server running?'
+    isConnecting.value = false
+  }
 
-    isModelLoaded.value = true
-    statusMessage.value = 'Model loaded. Click "Start Recording" to begin.'
-  } catch (e) {
-    error.value = `Failed to load model: ${e.message}`
-    statusMessage.value = 'Error loading model'
-  } finally {
-    isLoading.value = false
+  websocket.onclose = () => {
+    console.log('WebSocket closed')
+    isConnected.value = false
+    isConnecting.value = false
+    if (isRecording.value) {
+      stopRecording()
+    }
+    statusMessage.value = 'Disconnected. Click "Connect" to reconnect.'
   }
 }
 
 async function startRecording() {
-  if (!isModelLoaded.value) {
-    error.value = 'Please load the model first'
+  if (!isConnected.value) {
+    error.value = 'Please connect to the server first'
     return
   }
 
@@ -136,27 +108,11 @@ async function startRecording() {
     workletNode = new AudioWorkletNode(audioContext, 'audio-processor')
 
     workletNode.port.onmessage = (event) => {
-      if (!recognizer || !recognizerStream) return
+      if (!websocket || websocket.readyState !== WebSocket.OPEN) return
 
+      // Send audio samples as binary data
       const samples = event.data
-      recognizerStream.acceptWaveform(16000, samples)
-
-      while (recognizer.isReady(recognizerStream)) {
-        recognizer.decode(recognizerStream)
-      }
-
-      const result = recognizer.getResult(recognizerStream)
-      if (result.text) {
-        partialTranscript.value = result.text
-      }
-
-      if (recognizer.isEndpoint(recognizerStream)) {
-        if (result.text) {
-          transcript.value += result.text + ' '
-          partialTranscript.value = ''
-        }
-        recognizer.reset(recognizerStream)
-      }
+      websocket.send(samples.buffer)
     }
 
     source.connect(workletNode)
@@ -170,6 +126,11 @@ async function startRecording() {
 }
 
 function stopRecording() {
+  // Tell server we're done
+  if (websocket && websocket.readyState === WebSocket.OPEN) {
+    websocket.send(JSON.stringify({ type: 'stop' }))
+  }
+
   if (workletNode) {
     workletNode.disconnect()
     workletNode = null
@@ -197,14 +158,21 @@ function clearTranscript() {
   partialTranscript.value = ''
 }
 
+function disconnect() {
+  if (isRecording.value) {
+    stopRecording()
+  }
+  if (websocket) {
+    websocket.close()
+    websocket = null
+  }
+  isConnected.value = false
+  statusMessage.value = 'Disconnected. Click "Connect" to reconnect.'
+}
+
 onUnmounted(() => {
   stopRecording()
-  if (recognizerStream) {
-    recognizerStream.free()
-  }
-  if (recognizer) {
-    recognizer.free()
-  }
+  disconnect()
 })
 
 const audioWorkletCode = `
@@ -220,6 +188,7 @@ class AudioProcessor extends AudioWorkletProcessor {
       const samples = input[0]
       this.buffer.push(...samples)
 
+      // Send chunks of 1600 samples (100ms at 16kHz)
       if (this.buffer.length >= 1600) {
         this.port.postMessage(new Float32Array(this.buffer))
         this.buffer = []
@@ -236,7 +205,7 @@ registerProcessor('audio-processor', AudioProcessor)
 <template>
   <div class="container">
     <h1>Streaming Speech Recognition</h1>
-    <p class="subtitle">Using sherpa-onnx with Zipformer model</p>
+    <p class="subtitle">Using Nemotron Speech Streaming model</p>
 
     <div class="status">{{ statusMessage }}</div>
 
@@ -244,12 +213,12 @@ registerProcessor('audio-processor', AudioProcessor)
 
     <div class="controls">
       <button
-        v-if="!isModelLoaded"
-        @click="loadModel"
-        :disabled="isLoading"
+        v-if="!isConnected"
+        @click="connect"
+        :disabled="isConnecting"
         class="btn primary"
       >
-        {{ isLoading ? 'Loading...' : 'Load Model' }}
+        {{ isConnecting ? 'Connecting...' : 'Connect' }}
       </button>
 
       <template v-else>
@@ -266,6 +235,14 @@ registerProcessor('audio-processor', AudioProcessor)
           class="btn danger"
         >
           Stop Recording
+        </button>
+
+        <button
+          @click="disconnect"
+          class="btn secondary"
+          :disabled="isRecording"
+        >
+          Disconnect
         </button>
       </template>
 

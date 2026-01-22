@@ -1,10 +1,21 @@
 # NeMo ONNX JavaScript
 
-Streaming speech-to-text using [sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx).
+Streaming speech-to-text using [sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx) with a Vue 3 frontend and Node.js WebSocket backend.
 
-## Web App (Browser)
+## Quick Start
 
-A minimal Vue 3 web app with real-time microphone transcription.
+### 1. Start the Server
+
+```bash
+cd server
+npm install
+npm run download-model  # Downloads ~600MB model (first time only)
+npm start
+```
+
+Server runs at http://localhost:3000 with WebSocket at `ws://localhost:3000/ws`
+
+### 2. Start the Web App
 
 ```bash
 cd web
@@ -13,32 +24,31 @@ npm run dev
 ```
 
 Open http://localhost:5173 and:
-1. Click "Load Model" (downloads ~100MB on first load)
-2. Click "Start Recording"
+1. Click **Connect** to connect to the server
+2. Click **Start Recording**
 3. Speak into your microphone
+4. See real-time transcription
 
-The app uses sherpa-onnx-wasm with a Zipformer streaming model.
+## Project Structure
 
-## CLI Tool (Node.js)
-
-Transcribe audio files using sherpa-onnx with Nemotron Speech Streaming.
-
-```bash
-npm install
-./download-model.sh
-node transcribe.js audio.wav
+```
+nemo-onnx-js/
+├── server/                 # Node.js WebSocket backend
+│   ├── server.js          # Express + WebSocket server
+│   ├── package.json
+│   ├── download-model.sh  # Downloads Nemotron model
+│   └── models/            # Model files (gitignored)
+└── web/                   # Vue 3 frontend
+    ├── src/App.vue        # Main component
+    ├── package.json
+    └── vite.config.js
 ```
 
-### Requirements
+## Model
+
+Uses [Nemotron Speech Streaming](https://huggingface.co/nvidia/nemotron-speech-streaming-en-0.6b) (English, ~600MB) - a high-quality streaming ASR model from NVIDIA.
+
+## Requirements
 
 - Node.js 18+
-- WAV audio (16kHz mono recommended)
-
-Convert with ffmpeg: `ffmpeg -i input.mp3 -ar 16000 -ac 1 output.wav`
-
-## Models
-
-- **Web**: Uses [Zipformer Bilingual](https://huggingface.co/csukuangfj/sherpa-onnx-streaming-zipformer-bilingual-zh-en-2023-02-20) (Chinese/English)
-- **CLI**: Uses [Nemotron Speech Streaming](https://huggingface.co/nvidia/nemotron-speech-streaming-en-0.6b) (English)
-
-Both models support streaming (real-time) transcription.
+- Microphone access in browser

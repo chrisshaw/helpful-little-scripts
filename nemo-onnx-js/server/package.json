@@ -1,0 +1,22 @@
+{
+  "name": "nemo-onnx-server",
+  "version": "1.0.0",
+  "description": "WebSocket server for streaming speech recognition using sherpa-onnx",
+  "main": "server.js",
+  "scripts": {
+    "start": "DYLD_LIBRARY_PATH=./node_modules/sherpa-onnx-darwin-arm64:$DYLD_LIBRARY_PATH node server.js",
+    "download-model": "bash download-model.sh"
+  },
+  "keywords": [
+    "speech-to-text",
+    "asr",
+    "websocket",
+    "streaming"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "express": "^5.2.1",
+    "sherpa-onnx-node": "^1.12.23",
+    "ws": "^8.19.0"
+  }
+}
