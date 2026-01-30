@@ -1,0 +1,50 @@
+{
+  "name": "word-count",
+  "displayName": "Word Count",
+  "description": "Shows word count in the status bar. Counts words in the full document or just the selected text.",
+  "version": "0.1.0",
+  "publisher": "chrisshaw",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onLanguage:markdown",
+    "onLanguage:plaintext",
+    "onLanguage:latex",
+    "onLanguage:html",
+    "onLanguage:restructuredtext"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "configuration": {
+      "title": "Word Count",
+      "properties": {
+        "wordCount.enabledLanguages": {
+          "type": "array",
+          "default": [
+            "markdown",
+            "plaintext",
+            "latex",
+            "html",
+            "restructuredtext"
+          ],
+          "description": "Language IDs for which the word count status bar item is shown."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.80.0",
+    "@types/node": "^20.0.0",
+    "typescript": "^5.4.0"
+  }
+}

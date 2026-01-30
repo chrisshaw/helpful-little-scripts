@@ -62,3 +62,7 @@ typings/
 
 node_modules/
 models/
+
+# VS Code extension build output
+out/
+*.vsix
