@@ -13,7 +13,9 @@ export function countWords(text: string): number {
     .replace(/^[#>*\-=`~]+\s?/gm, "")
     // Inline code / code fences
     .replace(/`{1,3}[^`]*`{1,3}/g, "")
-    // Reference-style link definitions – strip only the [id]: marker
+    // Reference-style link definitions with URLs – strip the entire line
+    .replace(/^\[[^\]]*\]:\s+<?(?:https?:\/\/|ftp:\/\/|\/)\S*>?.*$/gm, "")
+    // Footnote-style references [id]: prose – strip only the [id]: marker
     .replace(/^\[[^\]]*\]:\s?/gm, "");
 
   const matches = cleaned.match(/\S+/g);

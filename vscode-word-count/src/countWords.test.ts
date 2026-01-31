@@ -15,6 +15,34 @@ describe("countWords", () => {
     assert.equal(countWords("   \n\t  "), 0);
   });
 
+  it("strips reference-style link definitions with URLs", () => {
+    assert.equal(
+      countWords("[link]: https://example.com"),
+      0,
+    );
+  });
+
+  it("strips reference-style link definitions with URL and title", () => {
+    assert.equal(
+      countWords('[link]: https://example.com "Example Site"'),
+      0,
+    );
+  });
+
+  it("strips angle-bracketed reference-style link definitions", () => {
+    assert.equal(
+      countWords("[link]: <https://example.com>"),
+      0,
+    );
+  });
+
+  it("strips reference-style links but keeps surrounding prose", () => {
+    const text = `See the docs for details.
+
+[1]: https://example.com`;
+    assert.equal(countWords(text), 5);
+  });
+
   it("counts words in prose with citations, references, and special punctuation", () => {
     const text = `Low-income middle and high school students in the United States lack access to high-quality, on-demand academic support. That is 12 million kids each year who start up to 70% behind peers with wealthier parents [1]. Imagine the lost opportunity for this country.
 
