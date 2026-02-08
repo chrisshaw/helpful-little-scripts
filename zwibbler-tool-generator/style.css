@@ -1,0 +1,140 @@
+/* ── Reset & Base ─────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:        #1a1a2e;
+  --surface:   #16213e;
+  --surface2:  #0f3460;
+  --accent:    #e94560;
+  --accent2:   #533483;
+  --text:      #eee;
+  --text-dim:  #aaa;
+  --radius:    6px;
+}
+
+html, body { height: 100%; font-family: system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--text); }
+
+#app { height: 100%; display: flex; flex-direction: column; }
+#app > [zwibbler] { display: flex; flex-direction: column; height: 100%; }
+
+/* ── Top bar ─────────────────────────────────────────────── */
+#top-bar {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 8px 16px; background: var(--surface); border-bottom: 1px solid var(--surface2);
+}
+#top-bar h1 { font-size: 16px; font-weight: 600; }
+#top-actions { display: flex; gap: 6px; }
+#top-actions button {
+  padding: 4px 10px; border: 1px solid var(--surface2); border-radius: var(--radius);
+  background: var(--surface2); color: var(--text); cursor: pointer; font-size: 13px;
+}
+#top-actions button:disabled { opacity: 0.4; cursor: default; }
+#top-actions button:hover:not(:disabled) { background: var(--accent2); }
+
+/* ── Main layout ─────────────────────────────────────────── */
+#main-layout { display: flex; flex: 1; min-height: 0; }
+
+/* ── Left toolbar ────────────────────────────────────────── */
+#toolbar {
+  width: 170px; flex-shrink: 0; padding: 12px;
+  background: var(--surface); border-right: 1px solid var(--surface2);
+  overflow-y: auto; display: flex; flex-direction: column; gap: 16px;
+}
+.tool-section h3 { font-size: 11px; text-transform: uppercase; color: var(--text-dim); margin-bottom: 6px; letter-spacing: 0.5px; }
+.tool-section button {
+  display: block; width: 100%; padding: 7px 10px; margin-bottom: 4px;
+  border: 1px solid transparent; border-radius: var(--radius);
+  background: transparent; color: var(--text); cursor: pointer;
+  text-align: left; font-size: 13px; transition: background 0.15s;
+}
+.tool-section button:hover { background: var(--surface2); }
+.tool-section button.active { background: var(--accent2); border-color: var(--accent); }
+
+#btn-generate {
+  background: var(--accent) !important; color: #fff !important;
+  font-weight: 600; border: none !important; text-align: center !important;
+}
+#btn-generate:hover { filter: brightness(1.15); }
+
+.generated-tool-btn { font-size: 12px !important; }
+
+/* ── Canvas ──────────────────────────────────────────────── */
+#canvas-area { flex: 1; position: relative; background: #fff; }
+#canvas-area [z-canvas] { width: 100%; height: 100%; }
+
+/* ── Overlay / Dialog ────────────────────────────────────── */
+.overlay {
+  position: fixed; inset: 0; z-index: 9000;
+  background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center;
+}
+.overlay.hidden { display: none; }
+
+#generator-dialog {
+  width: 560px; max-height: 90vh; overflow-y: auto;
+  background: var(--surface); border: 1px solid var(--surface2);
+  border-radius: 10px; box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+}
+#generator-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 16px 20px; border-bottom: 1px solid var(--surface2);
+}
+#generator-header h2 { font-size: 18px; }
+#generator-close {
+  background: none; border: none; color: var(--text-dim); font-size: 24px; cursor: pointer; line-height: 1;
+}
+#generator-body { padding: 20px; }
+#generator-body label { display: block; font-size: 14px; margin-bottom: 6px; color: var(--text-dim); }
+
+#tool-prompt {
+  width: 100%; padding: 10px; border: 1px solid var(--surface2); border-radius: var(--radius);
+  background: var(--bg); color: var(--text); font-size: 14px; resize: vertical; font-family: inherit;
+}
+#tool-prompt:focus { outline: none; border-color: var(--accent); }
+
+#category-hints { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 16px; }
+.hint-chip {
+  padding: 4px 10px; border-radius: 20px; font-size: 12px;
+  background: var(--surface2); color: var(--text-dim); cursor: pointer; transition: background 0.15s;
+}
+.hint-chip:hover { background: var(--accent2); color: var(--text); }
+
+#generator-options { margin-bottom: 16px; }
+#generator-options label { display: flex; align-items: center; gap: 8px; }
+#generator-options select {
+  padding: 4px 8px; border: 1px solid var(--surface2); border-radius: var(--radius);
+  background: var(--bg); color: var(--text); font-size: 13px;
+}
+
+#btn-do-generate {
+  width: 100%; padding: 10px; border: none; border-radius: var(--radius);
+  background: var(--accent); color: #fff; font-size: 15px; font-weight: 600; cursor: pointer;
+  transition: filter 0.15s;
+}
+#btn-do-generate:hover { filter: brightness(1.15); }
+#btn-do-generate:disabled { opacity: 0.5; cursor: default; filter: none; }
+
+/* ── Status / spinner ────────────────────────────────────── */
+#generator-status { display: flex; align-items: center; gap: 10px; margin-top: 16px; }
+#generator-status.hidden { display: none; }
+.spinner {
+  width: 20px; height: 20px; border: 3px solid var(--surface2); border-top-color: var(--accent);
+  border-radius: 50%; animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Preview ─────────────────────────────────────────────── */
+#generator-preview { margin-top: 20px; }
+#generator-preview.hidden { display: none; }
+#generator-preview h3 { font-size: 14px; margin-bottom: 8px; }
+#preview-frame-wrapper {
+  border: 1px solid var(--surface2); border-radius: var(--radius);
+  overflow: hidden; background: #fff;
+}
+#preview-frame { width: 100%; height: 350px; border: none; }
+#preview-actions { display: flex; gap: 8px; margin-top: 10px; }
+#preview-actions button {
+  flex: 1; padding: 8px; border: 1px solid var(--surface2); border-radius: var(--radius);
+  background: var(--surface2); color: var(--text); font-size: 13px; cursor: pointer;
+}
+#preview-actions button:first-child { background: var(--accent); border-color: var(--accent); font-weight: 600; }
+#preview-actions button:hover { filter: brightness(1.15); }
