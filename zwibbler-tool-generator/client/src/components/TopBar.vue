@@ -10,11 +10,16 @@
   </header>
 </template>
 
-<script setup>
-defineProps({
-  canUndo: Boolean,
-  canRedo: Boolean,
-});
+<script setup lang="ts">
+defineProps<{
+  canUndo: boolean;
+  canRedo: boolean;
+}>();
 
-defineEmits(["undo", "redo", "zoom-in", "zoom-out"]);
+defineEmits<{
+  undo: [];
+  redo: [];
+  "zoom-in": [];
+  "zoom-out": [];
+}>();
 </script>

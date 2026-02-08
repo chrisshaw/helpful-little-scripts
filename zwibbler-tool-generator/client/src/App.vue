@@ -29,22 +29,27 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, onMounted } from "vue";
 import TopBar from "./components/TopBar.vue";
 import Toolbar from "./components/Toolbar.vue";
 import CanvasArea from "./components/CanvasArea.vue";
 import GeneratorDialog from "./components/GeneratorDialog.vue";
-import { useZwibbler } from "./composables/useZwibbler.js";
+import { useZwibbler } from "./composables/useZwibbler";
+import type { GeneratedTool, RegisteredToolMeta } from "./types/tool";
 
-const canvasArea = ref(null);
+type CanvasAreaExpose = {
+  canvasEl: HTMLDivElement | null;
+};
+
+const canvasArea = ref<CanvasAreaExpose | null>(null);
 const showGenerator = ref(false);
-const generatedTools = ref([]);
+const generatedTools = ref<RegisteredToolMeta[]>([]);
 
 // We need to wait for the CanvasArea component to mount before initializing Zwibbler.
 // useZwibbler expects a ref to the actual DOM element, so we pass a computed-like ref
 // that resolves after mounting.
-const canvasElRef = ref(null);
+const canvasElRef = ref<Element | null>(null);
 
 const {
   currentTool,
@@ -66,7 +71,7 @@ onMounted(() => {
   }
 });
 
-function onAcceptTool(tool) {
+function onAcceptTool(tool: GeneratedTool): void {
   const registered = registerComponent(tool);
   placeOnCanvas(registered);
   generatedTools.value = [...generatedTools.value, registered];

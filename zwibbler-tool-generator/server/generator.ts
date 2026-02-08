@@ -2,11 +2,58 @@ import Anthropic from "@anthropic-ai/sdk";
 
 const client = new Anthropic();
 
+export type ToolSizeKey = "small" | "medium" | "large";
+
+export interface ToolSize {
+  width: number;
+  height: number;
+}
+
+interface ParsedToolResponse {
+  label: string;
+  description?: string;
+  html: string;
+  css: string;
+  js: string;
+}
+
+export interface GeneratedTool {
+  label: string;
+  description: string;
+  html: string;
+  css: string;
+  js: string;
+  width: number;
+  height: number;
+}
+
+export interface ValidationResult {
+  valid: true;
+}
+
+export interface ValidationFailure {
+  valid: false;
+  reasons: string[];
+}
+
+type ValidationOutcome = ValidationResult | ValidationFailure;
+type PatternRule = readonly [RegExp, string];
+
+export class ValidationError extends Error {
+  reasons: string[];
+
+  constructor(message: string, reasons: string[]) {
+    super(message);
+    this.name = "ValidationError";
+    this.reasons = reasons;
+  }
+}
+
 const SIZES = {
   small: { width: 300, height: 200 },
   medium: { width: 450, height: 350 },
   large: { width: 600, height: 500 },
-};
+} satisfies Record<ToolSizeKey, ToolSize>;
 
 const SYSTEM_PROMPT = `You are an expert frontend developer who creates self-contained HTML widgets for an academic whiteboard application powered by Zwibbler.
 
@@ -61,8 +108,8 @@ Return ONLY a JSON object with this exact structure — no markdown fences, no e
  * Validate generated tool output against blocked patterns.
  * Returns { valid: true } or { valid: false, reasons: string[] }.
  */
-function validate(tool) {
-  const BLOCKED_PATTERNS = [
+function validate(tool: Pick<GeneratedTool, "html" | "css" | "js">): ValidationOutcome {
+  const BLOCKED_PATTERNS: PatternRule[] = [
     [/\bfetch\s*\(/i, "Network requests (fetch) are not allowed"],
     [/\bXMLHttpRequest\b/i, "Network requests (XMLHttpRequest) are not allowed"],
     [/\bWebSocket\b/i, "WebSocket connections are not allowed"],
@@ -96,7 +143,7 @@ function validate(tool) {
     [/\brequire\s*\(/i, "require() is not allowed"],
   ];
 
-  const BLOCKED_HTML_PATTERNS = [
+  const BLOCKED_HTML_PATTERNS: PatternRule[] = [
     [/<script[\s>]/i, "<script> tags are not allowed"],
     [/<iframe[\s>]/i, "<iframe> tags are not allowed"],
     [/<object[\s>]/i, "<object> tags are not allowed"],
@@ -107,7 +154,7 @@ function validate(tool) {
     [/=\s*["']data\s*:/i, "data: URLs are not allowed in HTML attributes"],
   ];
 
-  const reasons = [];
+  const reasons: string[] = [];
 
   for (const [pattern, reason] of BLOCKED_PATTERNS) {
     if (pattern.test(tool.js)) reasons.push(`[JS] ${reason}`);
@@ -121,24 +168,33 @@ function validate(tool) {
     reasons.push("[CSS] url() references are not allowed");
   }
 
-  return reasons.length > 0 ? { valid: false, reasons } : { valid: true };
+  if (reasons.length > 0) {
+    return { valid: false, reasons };
+  }
+
+  return { valid: true };
 }
 
 /**
  * Parse Claude's response text into a tool object.
  */
-function parseToolResponse(text, size) {
+function parseToolResponse(text: string, size: ToolSize): GeneratedTool {
   let cleaned = text.trim();
   if (cleaned.startsWith("```")) {
     cleaned = cleaned.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "");
   }
 
-  const parsed = JSON.parse(cleaned);
+  const parsed = JSON.parse(cleaned) as ParsedToolResponse;
+  const requiredFields = ["label", "html", "css", "js"] as const;
 
-  for (const field of ["label", "html", "css", "js"]) {
+  for (const field of requiredFields) {
     if (typeof parsed[field] !== "string") {
       throw new Error(`Generated tool is missing required field: "${field}"`);
     }
+  }
+
+  if (parsed.description !== undefined && typeof parsed.description !== "string") {
+    throw new Error('Generated tool has invalid field: "description"');
   }
 
   return {
@@ -156,25 +212,47 @@ function parseToolResponse(text, size) {
  * Generate a tool widget via the Anthropic SDK.
  * Validates the output and retries once if validation fails.
  */
-export async function generate(prompt, sizeKey = "medium") {
-  const size = SIZES[sizeKey] || SIZES.medium;
+function getSize(sizeKey?: string): ToolSize {
+  if (sizeKey && sizeKey in SIZES) {
+    return SIZES[sizeKey as ToolSizeKey];
+  }
+
+  return SIZES.medium;
+}
+
+function getFirstTextContent(response: { content: Array<{ type: string; text?: string }> }): string {
+  const textBlock = response.content.find(
+    (block): block is { type: "text"; text: string } =>
+      block.type === "text" && typeof (block as { text?: unknown }).text === "string",
+  );
+
+  if (!textBlock) {
+    throw new Error("Failed to parse generated tool response");
+  }
+
+  return textBlock.text;
+}
+
+export async function generate(prompt: string, sizeKey?: string): Promise<GeneratedTool> {
+  const size = getSize(sizeKey);
 
   const userMessage = `Create a widget for: ${prompt}\n\nTarget dimensions: ${size.width}px wide by ${size.height}px tall.\n\nRemember: return ONLY the JSON object, no markdown fencing or extra text.`;
 
-  async function callClaude() {
+  async function callClaude(): Promise<GeneratedTool> {
     const response = await client.messages.create({
       model: "claude-sonnet-4-5-20250929",
       max_tokens: 4096,
+      stream: false,
       system: SYSTEM_PROMPT,
       messages: [{ role: "user", content: userMessage }],
     });
 
-    return parseToolResponse(response.content[0].text, size);
+    return parseToolResponse(getFirstTextContent(response), size);
   }
 
   // First attempt
   const tool = await callClaude();
-  const result = validate(tool);
+  const result: ValidationOutcome = validate(tool);
 
   if (result.valid) {
     return tool;
@@ -182,12 +260,10 @@ export async function generate(prompt, sizeKey = "medium") {
 
   // Automatic retry — the model sometimes slips on a single constraint
   const tool2 = await callClaude();
-  const result2 = validate(tool2);
+  const result2: ValidationOutcome = validate(tool2);
 
   if (!result2.valid) {
-    const err = new Error("Generated tool failed safety validation");
-    err.reasons = result2.reasons;
-    throw err;
+    throw new ValidationError("Generated tool failed safety validation", result2.reasons);
   }
 
   return tool2;

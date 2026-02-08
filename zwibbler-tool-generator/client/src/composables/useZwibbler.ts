@@ -1,5 +1,8 @@
 import { ref, shallowRef, watch, onBeforeUnmount } from "vue";
-import { buildComponentHTML } from "../utils/sandbox.js";
+import type { Ref } from "vue";
+import { buildComponentHTML } from "../utils/sandbox";
+import type { DrawingToolName, GeneratedTool, RegisteredToolMeta } from "../types/tool";
+import type { ZwibblerContext, ZwibblerScope } from "../types/zwibbler";
 
 /**
  * Composable that manages the Zwibbler canvas context.
@@ -10,15 +13,17 @@ import { buildComponentHTML } from "../utils/sandbox.js";
  * Uses a watch on canvasRef so Zwibbler initializes as soon as the
  * DOM element becomes available (after child component mounts).
  */
-export function useZwibbler(canvasRef) {
-  const ctx = shallowRef(null);
-  const currentTool = ref("pick");
+type ToolMethodMap = Record<DrawingToolName, () => void>;
+
+export function useZwibbler(canvasRef: Ref<Element | null>) {
+  const ctx = shallowRef<ZwibblerContext | null>(null);
+  const currentTool = ref<DrawingToolName>("pick");
   const canUndo = ref(false);
   const canRedo = ref(false);
 
   let toolCounter = 0;
 
-  watch(canvasRef, (el) => {
+  watch(() => canvasRef.value, (el: Element | null) => {
     if (!el || ctx.value) return;
     if (typeof Zwibbler === "undefined") return;
 
@@ -34,7 +39,7 @@ export function useZwibbler(canvasRef) {
       canRedo.value = context.canRedo();
     });
 
-    context.on("tool-changed", (toolName) => {
+    context.on("tool-changed", (toolName: DrawingToolName) => {
       currentTool.value = toolName;
     });
   });
@@ -45,28 +50,29 @@ export function useZwibbler(canvasRef) {
     }
   });
 
-  function useTool(name) {
-    if (!ctx.value) return;
-    const methods = {
-      pick: () => ctx.value.usePickTool(),
-      brush: () => ctx.value.useBrushTool(),
-      line: () => ctx.value.useLineTool(),
-      rectangle: () => ctx.value.useRectangleTool(),
-      circle: () => ctx.value.useCircleTool(),
-      text: () => ctx.value.useTextTool(),
+  function useTool(name: DrawingToolName): void {
+    const context = ctx.value;
+    if (!context) return;
+    const methods: ToolMethodMap = {
+      pick: () => context.usePickTool(),
+      brush: () => context.useBrushTool(),
+      line: () => context.useLineTool(),
+      rectangle: () => context.useRectangleTool(),
+      circle: () => context.useCircleTool(),
+      text: () => context.useTextTool(),
     };
     methods[name]?.();
   }
 
-  function undo() { ctx.value?.undo(); }
-  function redo() { ctx.value?.redo(); }
+  function undo(): void { ctx.value?.undo(); }
+  function redo(): void { ctx.value?.redo(); }
 
-  function zoomIn() {
+  function zoomIn(): void {
     if (!ctx.value) return;
     ctx.value.setZoom(ctx.value.getZoom() * 1.2);
   }
 
-  function zoomOut() {
+  function zoomOut(): void {
     if (!ctx.value) return;
     ctx.value.setZoom(ctx.value.getZoom() / 1.2);
   }
@@ -75,7 +81,7 @@ export function useZwibbler(canvasRef) {
    * Register a generated tool as a Zwibbler component.
    * Returns metadata for placing it on the canvas.
    */
-  function registerComponent(tool) {
+  function registerComponent(tool: GeneratedTool): RegisteredToolMeta {
     toolCounter++;
     const componentName = `GeneratedTool_${toolCounter}`;
     const fullHTML = buildComponentHTML(tool);
@@ -87,18 +93,19 @@ export function useZwibbler(canvasRef) {
           ${fullHTML}
         </div>
       `,
-      controller(scope) {
+      controller(scope: ZwibblerScope) {
         const el = scope.$element;
         if (!el) return;
         const root = el.querySelector(".widget-root");
-        if (!root) return;
+        if (!(root instanceof HTMLElement)) return;
 
         try {
           const fn = new Function("scope", "el", tool.js);
           fn(scope, root);
-        } catch (err) {
+        } catch (err: unknown) {
           console.error(`[${componentName}] Widget JS error:`, err);
-          root.textContent = `Widget error: ${err.message}`;
+          const message = err instanceof Error ? err.message : String(err);
+          root.textContent = `Widget error: ${message}`;
           root.style.cssText += "color:red; padding:20px; font-size:14px;";
         }
       },
@@ -116,7 +123,7 @@ export function useZwibbler(canvasRef) {
   /**
    * Place a registered component on the canvas.
    */
-  function placeOnCanvas(toolMeta) {
+  function placeOnCanvas(toolMeta: RegisteredToolMeta): void {
     if (!ctx.value) return;
     ctx.value.begin();
     ctx.value.createHTMLNode(toolMeta.componentName, {

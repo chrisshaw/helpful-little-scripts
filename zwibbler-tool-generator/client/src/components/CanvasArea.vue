@@ -4,10 +4,10 @@
   </div>
 </template>
 
-<script setup>
-import { ref, defineExpose } from "vue";
+<script setup lang="ts">
+import { ref } from "vue";
 
-const canvasEl = ref(null);
+const canvasEl = ref<HTMLDivElement | null>(null);
 
 defineExpose({ canvasEl });
 </script>

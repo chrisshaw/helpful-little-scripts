@@ -1,14 +1,24 @@
 import express from "express";
 import cors from "cors";
-import { generate } from "./generator.js";
+import { generate, ValidationError } from "./generator.js";
+
+interface GenerateRequestBody {
+  prompt?: string;
+  size?: string;
+}
+
+function getErrorMessage(err: unknown): string {
+  if (err instanceof Error) return err.message;
+  return "Unknown error";
+}
 
 const app = express();
-const PORT = parseInt(process.env.PORT, 10) || 3001;
+const PORT = Number.parseInt(process.env.PORT ?? "3001", 10);
 
 app.use(cors());
 app.use(express.json());
 
-app.post("/api/generate", async (req, res) => {
+app.post("/api/generate", async (req: express.Request<object, object, GenerateRequestBody>, res: express.Response) => {
   const { prompt, size } = req.body;
 
   if (!prompt || typeof prompt !== "string") {
@@ -21,14 +31,14 @@ app.post("/api/generate", async (req, res) => {
   } catch (err) {
     console.error("Generation failed:", err);
 
-    if (err.reasons) {
+    if (err instanceof ValidationError) {
       return res.status(422).json({
         error: "Generated tool failed safety validation",
         reasons: err.reasons,
       });
     }
 
-    if (err.message?.includes("parse")) {
+    if (getErrorMessage(err).includes("parse")) {
       return res.status(422).json({
         error: "Failed to parse generated tool — the model returned invalid output",
       });

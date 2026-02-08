@@ -75,25 +75,29 @@
   </Teleport>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, watch, nextTick } from "vue";
-import { generateTool } from "../api/generator.js";
-import { renderPreview } from "../utils/sandbox.js";
+import { generateTool } from "../api/generator";
+import { renderPreview } from "../utils/sandbox";
+import type { GeneratedTool, ToolSizeKey } from "../types/tool";
 
-defineProps({
-  visible: Boolean,
-});
+const props = defineProps<{
+  visible: boolean;
+}>();
 
-const emit = defineEmits(["close", "accept"]);
+const emit = defineEmits<{
+  close: [];
+  accept: [tool: GeneratedTool];
+}>();
 
 const prompt = ref("");
-const size = ref("medium");
+const size = ref<ToolSizeKey>("medium");
 const generating = ref(false);
 const statusText = ref("Generating your tool...");
 const error = ref("");
-const previewTool = ref(null);
-const promptInput = ref(null);
-const previewFrame = ref(null);
+const previewTool = ref<GeneratedTool | null>(null);
+const promptInput = ref<HTMLTextAreaElement | null>(null);
+const previewFrame = ref<HTMLIFrameElement | null>(null);
 
 const hints = [
   "Calculator",
@@ -124,8 +128,8 @@ async function doGenerate() {
     if (previewFrame.value) {
       renderPreview(previewFrame.value, tool);
     }
-  } catch (err) {
-    error.value = err.message;
+  } catch (err: unknown) {
+    error.value = err instanceof Error ? err.message : String(err);
     console.error("Tool generation failed:", err);
   } finally {
     generating.value = false;
@@ -142,7 +146,11 @@ function accept() {
 
 // Auto-focus the prompt input when dialog opens
 watch(
-  () => promptInput.value,
-  (el) => { if (el) el.focus(); },
+  () => props.visible,
+  async (visible) => {
+    if (!visible) return;
+    await nextTick();
+    promptInput.value?.focus();
+  },
 );
 </script>

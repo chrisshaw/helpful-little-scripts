@@ -3,7 +3,13 @@
  * All AI generation happens server-side — this just sends the prompt.
  */
 
-export async function generateTool(prompt, size = "medium") {
+import type { GeneratedTool, ToolSizeKey } from "../types/tool";
+
+interface ErrorResponseBody {
+  error?: string;
+}
+
+export async function generateTool(prompt: string, size: ToolSizeKey = "medium"): Promise<GeneratedTool> {
   const response = await fetch("/api/generate", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -11,9 +17,9 @@ export async function generateTool(prompt, size = "medium") {
   });
 
   if (!response.ok) {
-    const body = await response.json().catch(() => ({}));
+    const body = (await response.json().catch(() => ({}))) as ErrorResponseBody;
     throw new Error(body.error || `Server error (${response.status})`);
   }
 
-  return response.json();
+  return (await response.json()) as GeneratedTool;
 }

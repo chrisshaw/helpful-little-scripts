@@ -7,10 +7,12 @@
  * for Zwibbler registration.
  */
 
+import type { GeneratedTool } from "../types/tool";
+
 /**
  * Build combined HTML string (CSS + HTML) for Zwibbler component registration.
  */
-export function buildComponentHTML(tool) {
+export function buildComponentHTML(tool: GeneratedTool): string {
   return `<style>${tool.css}</style>${tool.html}`;
 }
 
@@ -18,7 +20,7 @@ export function buildComponentHTML(tool) {
  * Render a tool inside a sandboxed iframe for preview.
  * The iframe uses srcdoc with sandbox="allow-scripts" (no same-origin access).
  */
-export function renderPreview(iframeEl, tool) {
+export function renderPreview(iframeEl: HTMLIFrameElement, tool: GeneratedTool): void {
   const doc = `<!DOCTYPE html>
 <html>
 <head>

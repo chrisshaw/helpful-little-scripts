@@ -29,13 +29,19 @@
   </aside>
 </template>
 
-<script setup>
-defineProps({
-  currentTool: String,
-  generatedTools: Array,
-});
+<script setup lang="ts">
+import type { DrawingToolName, RegisteredToolMeta } from "../types/tool";
 
-defineEmits(["use-tool", "open-generator", "place-tool"]);
+defineProps<{
+  currentTool: DrawingToolName;
+  generatedTools: RegisteredToolMeta[];
+}>();
+
+defineEmits<{
+  "use-tool": [toolName: DrawingToolName];
+  "open-generator": [];
+  "place-tool": [tool: RegisteredToolMeta];
+}>();
 
 const drawingTools = [
   { name: "pick", label: "Select" },
@@ -44,5 +50,5 @@ const drawingTools = [
   { name: "rectangle", label: "Rectangle" },
   { name: "circle", label: "Circle" },
   { name: "text", label: "Text" },
-];
+] as const;
 </script>
