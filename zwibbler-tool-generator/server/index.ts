@@ -1,6 +1,7 @@
 import express from "express";
 import cors from "cors";
-import { generate, ValidationError } from "./generator.js";
+import { generate } from "./generator.js";
+import { ValidationError } from "./validate.js";
 
 interface GenerateRequestBody {
   prompt?: string;
