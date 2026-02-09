@@ -1,17 +1,17 @@
 # Zwibbler Tool Generator
 
-An AI-powered tool generator for [Zwibbler](https://zwibbler.com) whiteboards. Users describe academic tools in natural language — calculator, periodic table, coordinate plane, unit converter, etc. — and a Claude-backed agent generates interactive HTML widgets that drop directly onto the whiteboard canvas.
+An AI-powered tool generator for [Zwibbler](https://zwibbler.com) whiteboards. Users describe academic tools in natural language — calculator, periodic table, coordinate plane, unit converter, etc. — and a Claude model (via Amazon Bedrock) generates interactive HTML widgets that drop directly onto the whiteboard canvas.
 
 ## How it works
 
 ```
-User prompt  →  Express API  →  Anthropic SDK  →  Validate  →  JSON response
+User prompt  →  Express API  →  AWS Bedrock SDK  →  Validate  →  JSON response
                                                                      ↓
 Canvas  ←  Zwibbler.component()  ←  Sandbox preview  ←  Vue 3 client
 ```
 
 1. **User describes a tool** in natural language via the generator dialog
-2. **The server calls Claude** (via the Anthropic SDK) to generate a self-contained widget (HTML + scoped CSS + vanilla JS) following strict constraints
+2. **The server calls Claude** (via the AWS Bedrock SDK) to generate a self-contained widget (HTML + scoped CSS + vanilla JS) following strict constraints
 3. **Server-side validation** checks the output against ~30 blocked patterns before returning it
 4. **User previews** the widget in a sandboxed iframe before accepting
 5. **The widget is registered** as a `Zwibbler.component()` and placed on the canvas as a movable, resizable HTML node
@@ -37,9 +37,9 @@ zwibbler-tool-generator/
 │   │       └── sandbox.js      Preview rendering + component HTML builder
 │   └── public/
 │       └── (zwibbler.js)       Place your licensed copy here
-├── server/                     Express + Anthropic SDK backend
+├── server/                     Express + AWS Bedrock SDK backend
 │   ├── index.js                Express app entry point
-│   └── generator.js            Anthropic SDK calls, system prompt, validation
+│   └── generator.js            Bedrock SDK calls, system prompt, validation
 └── package.json                Root scripts (dev, build, install)
 ```
 
@@ -68,7 +68,8 @@ The generator uses defense in depth:
 ### Prerequisites
 
 - A [Zwibbler license](https://zwibbler.com) — place `zwibbler.js` in `client/public/`
-- An [Anthropic API key](https://console.anthropic.com/) — set as `ANTHROPIC_API_KEY` environment variable
+- An [Amazon Bedrock API key](https://docs.aws.amazon.com/bedrock/latest/userguide/api-keys.html) — set as `AWS_BEARER_TOKEN_BEDROCK` environment variable (or use standard AWS credentials via `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY`)
+- Optionally set `AWS_REGION` (defaults to `us-east-1`)
 - Node.js 18+
 
 ### Install
@@ -81,7 +82,7 @@ npm run install:all
 ### Development
 
 ```bash
-ANTHROPIC_API_KEY=sk-ant-... npm run dev
+AWS_BEARER_TOKEN_BEDROCK=your-key-here npm run dev
 ```
 
 This starts both the Express API server (port 3001) and the Vite dev server (port 3000) with API proxying. Open `http://localhost:3000`.
@@ -89,8 +90,8 @@ This starts both the Express API server (port 3001) and the Vite dev server (por
 ### Production
 
 ```bash
-npm run build                          # builds client to client/dist/
-ANTHROPIC_API_KEY=sk-ant-... npm start # starts the API server
+npm run build                                    # builds client to client/dist/
+AWS_BEARER_TOKEN_BEDROCK=your-key-here npm start # starts the API server
 ```
 
 In production, serve `client/dist/` with your preferred static file server (nginx, CDN, etc.) and proxy `/api` requests to the Express server.

@@ -4,7 +4,7 @@ import {
 } from "@aws-sdk/client-bedrock-runtime";
 
 const AWS_REGION = process.env.AWS_REGION || "us-east-1";
-const MODEL_ID = "anthropic.claude-sonnet-4-5-20250929-v1:0";
+const MODEL_ID = "us.anthropic.claude-sonnet-4-5-20250929-v1:0";
 
 import { SYSTEM_PROMPT } from "./SYSTEM_PROMPT.js";
 import { validate, ValidationError, ValidationOutcome } from "./validate.js";
