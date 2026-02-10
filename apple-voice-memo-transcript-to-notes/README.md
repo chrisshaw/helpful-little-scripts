@@ -2,8 +2,6 @@
 
 Save my Apple Voice Memos as text transcripts in my personal notes (in MEGA)
 
-I use this in Automator
-
 <callout role="note" style="display:block;background:light-blue">
 
 ℹ️ This is a `uv` project.
@@ -13,10 +11,10 @@ I use this in Automator
 ## TL;DR
 
 1.	Turn on iCloud › Voice Memos (so recordings land on your Mac).
-2.	Make an Automator → Folder Action that watches the Voice Memos folder.
-3.	Paste the script below. It copies audio to: `/Users/chrisshaw/MEGA/chris/notes/voice-notes`
+2.	Install the `launchd` agent that watches the Voice Memos folder for changes.
+3.	When a memo is added or updated, `main.py` extracts the transcript and saves it to: `/Users/chrisshaw/MEGA/chris/notes/voice-notes`
 
-…and creates `your-memo`.md with YAML + transcript.
+…as `your-memo.md` with YAML front matter + transcript text.
 
 ⸻
 
@@ -33,37 +31,47 @@ git clone https://github.com/chrisshaw/helpful-little-scripts.git
 cd helpful-little-scripts/apple-voice-memo-transcript-to-notes
 ```
 
-Copy the path as you'll use it in the Folder Action next.
-
-#### Change file permissions to executable (755)
+#### Make scripts executable
 
 ```zsh
-sudo chmod +x main.py
+chmod +x main.py watch-and-process.sh
 ```
 
+#### Install the launchd agent
 
-#### Create the Folder Action
+```zsh
+cp com.chrisshaw.voicememos-to-notes.plist ~/Library/LaunchAgents/
+launchctl load ~/Library/LaunchAgents/com.chrisshaw.voicememos-to-notes.plist
+```
 
-- Open Automator → New → Folder Action.
-- “Folder:” choose: `~/Library/Group Containers/group.com.apple.VoiceMemos.shared/Recordings/`
-- Add Run Shell Script. Shell: type `/bin/zsh`. Set “Pass input:” → “as arguments.”
-- Paste: `"$HOME/projects/helpful-little-scripts/apple-voice-memo-transcript-to-notes/main.py" "$@"`
-- Save (name it e.g. Voice Memos → MEGA).
+Verify it's loaded:
+
+```zsh
+launchctl list | grep voicememos
+```
 
 #### Permissions (if needed)
 
-System Settings → Privacy & Security → Full Disk Access → enable for Automator.
+System Settings → Privacy & Security → Full Disk Access → enable for `/bin/bash` (or Terminal.app).
+
+### How it works
+
+The launchd agent uses `WatchPaths` to monitor `~/Library/Group Containers/group.com.apple.VoiceMemos.shared/Recordings/`. Unlike Automator Folder Actions (which only fire on new files), `WatchPaths` fires on **any** change — including when Apple updates an existing `.m4a` with a transcript after the initial sync.
+
+When triggered, `watch-and-process.sh`:
+- Processes `.m4a` files modified in the last 30 minutes
+- Once per hour, does a full sweep to catch late-arriving transcripts
+- Passes files to `main.py --skip-complete`, which skips files that already have a real transcript
 
 ### Output
 
-Record a new memo on iPhone. Within a moment, you should see a `.m4a` and a `.md` appear in `/Users/chrisshaw/MEGA/chris/notes/voice-notes` like:
+Record a new memo on iPhone. Within a moment, you should see a `.md` appear in `/Users/chrisshaw/MEGA/chris/notes/voice-notes` like:
 
 ```md
 ---
 title: "memo-name"
 date: "2025-09-27T10:12:34-04:00"
 source: "Apple Voice Memos"
-audio: "./memo-name.m4a"
 duration_seconds: 123.456   # if available
 language: "en-US"           # if available
 tags: ["voice-memo"]
@@ -73,20 +81,33 @@ tags: ["voice-memo"]
 
 ### Customize (quick tweaks)
 
-- Change tags: edit tags: ["voice-memo"].
-- Prefix filenames with date: replace base = … with:
-  ```python
-  base = dt.strftime("%Y-%m-%d_") + os.path.splitext(os.path.basename(infile))[0]
-  ```
-- Copying audio: remove the shutil.copy2(...) line and the audio: field.
-- Different destination: change the DEST="..." path at the top.
+- Change tags: edit `tags: ["voice-memo"]`.
+- Different destination: change the `DEST="..."` path at the top of `main.py`.
+
+## Logs
+
+```zsh
+tail -f ~/Library/Logs/voicememos-to-notes.log
+```
 
 ## Disable / remove
 
-Open Automator → Folder Actions → uncheck or delete the “Voice Memos → MEGA” action. You can also remove it from Folder Actions Setup in Finder (right-click the folder).
+```zsh
+launchctl unload ~/Library/LaunchAgents/com.chrisshaw.voicememos-to-notes.plist
+rm ~/Library/LaunchAgents/com.chrisshaw.voicememos-to-notes.plist
+```
 
 ## Troubleshooting
-- “(no embedded transcript)”: open the memo once in Voice Memos; Apple may not have embedded the transcript yet.
-- Nothing happens: confirm the Automator action is enabled and that Automator has Full Disk Access.
-- Path wrong: double-check the watched folder path (see setup).
-- Python not found: change /usr/bin/python3 to your Python 3 path.
+- "(no embedded transcript)": the transcript should arrive automatically on the next file update. You can also open the memo in Voice Memos to prompt Apple to embed it.
+- Nothing happens: run `launchctl list | grep voicememos` to check the agent is loaded. Check the log file for errors.
+- Permissions: ensure Full Disk Access is granted (see setup).
+- Python not found: check that `/usr/bin/python3` exists, or update the shebang in `main.py`.
+
+<details>
+<summary>Legacy: Automator setup (replaced by launchd)</summary>
+
+The original setup used an Automator Folder Action, but this only triggered on new files — not updates. Since Apple often syncs the audio before the transcript, many notes ended up with "(no embedded transcript)".
+
+To remove the old Automator action: Finder → right-click the Recordings folder → Folder Actions Setup → uncheck or delete the action.
+
+</details>

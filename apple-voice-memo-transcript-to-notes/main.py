@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
-# Automator: Run Shell Script
-# Shell: /usr/bin/python3
-# Pass input: as arguments
+# Called by watch-and-process.sh (via launchd) or directly with .m4a paths.
 # Thank you to https://github.com/uasi/extract-apple-voice-memos-transcript/blob/master/extract-apple-voice-memos-transcript
 
 import sys, os, json, struct, shutil, re
 from datetime import datetime, timezone
 from typing import Optional
 from unicodedata import normalize
+
+# Parse flags (no argparse needed)
+skip_complete = "--skip-complete" in sys.argv
+input_files = [a for a in sys.argv[1:] if not a.startswith("--")]
 
 # === destination for outputs ===
 DEST = "/Users/chrisshaw/MEGA/chris/notes/voice-notes"
@@ -204,8 +206,10 @@ def slugify(s, max_len=64):
 def yaml_escape(s: str) -> str:
     return s.replace('"', '\\"')
 
+NO_TRANSCRIPT_MARKER = "(no embedded transcript)"
+
 # --- main: each input path is a Voice Memos .m4a ---
-for infile in sys.argv[1:]:
+for infile in input_files:
     if not infile.lower().endswith(".m4a"):
         continue
 
@@ -265,11 +269,20 @@ for infile in sys.argv[1:]:
     audio_dst = os.path.join(DEST, base + ".m4a")
     md_dst    = os.path.join(DEST, base + ".md")
 
+    # When --skip-complete is set, skip files that already have a real transcript
+    if skip_complete and os.path.isfile(md_dst):
+        try:
+            with open(md_dst, "r", encoding="utf-8") as existing:
+                if NO_TRANSCRIPT_MARKER not in existing.read():
+                    continue
+        except Exception:
+            pass  # if we can't read it, reprocess
+
     duration = parse_mvhd_duration(found.get(TARGET_MVHD))
     text, language = extract_transcript_text(found.get(TARGET_TSRP))
     
     if not text:
-        text = "(no embedded transcript)"
+        text = NO_TRANSCRIPT_MARKER
 
     # write Markdown with YAML front matter
     yaml_lines = [

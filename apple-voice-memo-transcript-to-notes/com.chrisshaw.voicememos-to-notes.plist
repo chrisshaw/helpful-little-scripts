@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.chrisshaw.voicememos-to-notes</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>/Users/chrisshaw/projects/helpful-little-scripts/apple-voice-memo-transcript-to-notes/watch-and-process.sh</string>
+    </array>
+
+    <key>WatchPaths</key>
+    <array>
+        <string>/Users/chrisshaw/Library/Group Containers/group.com.apple.VoiceMemos.shared/Recordings</string>
+    </array>
+
+    <key>ThrottleInterval</key>
+    <integer>10</integer>
+
+    <key>RunAtLoad</key>
+    <false/>
+
+    <key>StandardOutPath</key>
+    <string>/Users/chrisshaw/Library/Logs/voicememos-to-notes.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/chrisshaw/Library/Logs/voicememos-to-notes.log</string>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/usr/local/bin:/usr/bin:/bin:/Users/chrisshaw/.local/bin</string>
+    </dict>
+</dict>
+</plist>

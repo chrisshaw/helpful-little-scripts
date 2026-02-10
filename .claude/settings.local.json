@@ -3,7 +3,10 @@
     "allow": [
       "Bash(cat:*)",
       "Bash(npm run dev:*)",
-      "Bash(mkdir:*)"
+      "Bash(mkdir:*)",
+      "Bash(ls:*)",
+      "Bash(du:*)",
+      "Bash(grep:*)"
     ],
     "deny": [],
     "ask": []
