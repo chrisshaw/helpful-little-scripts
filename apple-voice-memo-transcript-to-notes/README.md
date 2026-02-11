@@ -56,11 +56,12 @@ System Settings → Privacy & Security → Full Disk Access → enable for `/bin
 
 ### How it works
 
-The launchd agent uses `WatchPaths` to monitor `~/Library/Group Containers/group.com.apple.VoiceMemos.shared/Recordings/`. Unlike Automator Folder Actions (which only fire on new files), `WatchPaths` fires on **any** change — including when Apple updates an existing `.m4a` with a transcript after the initial sync.
+The launchd agent uses `WatchPaths` to monitor `~/Library/Group Containers/group.com.apple.VoiceMemos.shared/Recordings/`. Unlike Automator Folder Actions (which only fire on new files), `WatchPaths` fires on **any** change — including when Apple updates an existing `.m4a` with a transcript after the initial sync. This means processing is **event-driven**: it starts within seconds of a file appearing or changing, not on a timer.
 
 When triggered, `watch-and-process.sh`:
-- Processes `.m4a` files modified in the last 30 minutes
-- Once per hour, does a full sweep to catch late-arriving transcripts
+
+- Waits a few seconds for iCloud to finish writing, then processes any `.m4a` files modified in the last 30 minutes (a generous lookback window, not a polling interval)
+- As a safety net, does a full sweep once per hour to catch transcripts that Apple embeds well after the initial audio sync
 - Passes files to `main.py --skip-complete`, which skips files that already have a real transcript
 
 ### Output

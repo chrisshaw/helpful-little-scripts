@@ -38,37 +38,32 @@ if [ ! -d "$RECORDINGS_DIR" ]; then
     exit 1
 fi
 
-# --- Collect files to process ---
-declare -A file_set
+# --- Collect files to process (using temp file for bash 3.2 compat) ---
+tmpfile=$(mktemp)
+trap 'rm -f "$LOCK_FILE" "$tmpfile"' EXIT
 
 # 1. Recently modified files (last 30 minutes)
-while IFS= read -r -d '' f; do
-    file_set["$f"]=1
-done < <(find "$RECORDINGS_DIR" -name '*.m4a' -mmin -30 -print0 2>/dev/null)
-
-log "Found ${#file_set[@]} recently modified .m4a file(s)."
+find "$RECORDINGS_DIR" -name '*.m4a' -mmin -30 2>/dev/null > "$tmpfile"
 
 # 2. Full sweep once per hour to catch late-arriving transcripts
 if [ ! -f "$SWEEP_MARKER" ] || [ -n "$(find "$SWEEP_MARKER" -mmin +60 2>/dev/null)" ]; then
     log "Performing hourly full sweep..."
-    while IFS= read -r -d '' f; do
-        file_set["$f"]=1
-    done < <(find "$RECORDINGS_DIR" -name '*.m4a' -print0 2>/dev/null)
+    find "$RECORDINGS_DIR" -name '*.m4a' 2>/dev/null >> "$tmpfile"
     touch "$SWEEP_MARKER"
-    log "Full sweep: ${#file_set[@]} total .m4a file(s)."
 fi
 
-if [ ${#file_set[@]} -eq 0 ]; then
+# Deduplicate and read into array
+files=()
+while IFS= read -r f; do
+    [ -n "$f" ] && files+=("$f")
+done < <(sort -u "$tmpfile")
+
+if [ ${#files[@]} -eq 0 ]; then
     log "No files to process."
     exit 0
 fi
 
 # --- Run main.py with --skip-complete ---
-files=()
-for f in "${!file_set[@]}"; do
-    files+=("$f")
-done
-
 log "Processing ${#files[@]} file(s)..."
 "$MAIN_PY" --skip-complete "${files[@]}"
 log "Done."
