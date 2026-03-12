@@ -19,9 +19,9 @@ This passage needs tightening.
 
 Too cliche.
 
-```suggestion
+\`\`\`suggestion
 A swift russet fox
-```
+\`\`\`
 
 ---
 ```
@@ -66,3 +66,12 @@ npm test
 ```
 
 Press `F5` in VS Code to launch the Extension Development Host.
+
+## Installation
+
+Package with `vsce`:
+
+```bash
+npx @vscode/vsce package
+code --install-extension redline-0.1.0.vsix
+```
