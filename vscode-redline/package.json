@@ -1,0 +1,97 @@
+{
+  "name": "redline",
+  "displayName": "Redline",
+  "description": "Annotate Markdown files with editorial comments stored in a readable sidecar file, without modifying the source.",
+  "version": "0.1.0",
+  "publisher": "chrisshaw",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onLanguage:markdown"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "redline.add",
+        "title": "Redline: Add Comment"
+      },
+      {
+        "command": "redline.delete",
+        "title": "Redline: Delete Comment"
+      },
+      {
+        "command": "redline.openSidecar",
+        "title": "Redline: Open Sidecar File"
+      },
+      {
+        "command": "redline.nextNote",
+        "title": "Redline: Go to Next Comment"
+      },
+      {
+        "command": "redline.prevNote",
+        "title": "Redline: Go to Previous Comment"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "redline.add",
+        "key": "ctrl+shift+;",
+        "mac": "cmd+shift+;",
+        "when": "editorTextFocus && editorLangId == markdown"
+      },
+      {
+        "command": "redline.openSidecar",
+        "key": "ctrl+shift+'",
+        "mac": "cmd+shift+'",
+        "when": "editorTextFocus && editorLangId == markdown"
+      }
+    ],
+    "menus": {
+      "editor/context": [
+        {
+          "command": "redline.add",
+          "when": "editorHasSelection && editorLangId == markdown",
+          "group": "1_modification"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Redline",
+      "properties": {
+        "redline.highlightColor": {
+          "type": "string",
+          "default": "rgba(255, 107, 107, 0.12)",
+          "description": "Background color for annotated text ranges."
+        },
+        "redline.showInlinePreview": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show truncated comment previews after annotated lines (git-blame style)."
+        },
+        "redline.contextChars": {
+          "type": "number",
+          "default": 40,
+          "description": "Number of characters of surrounding context to capture when creating annotations."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "test": "node --import tsx --test src/**/*.test.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/vscode": "^1.80.0",
+    "tsx": "^4.21.0",
+    "typescript": "^5.4.0"
+  }
+}
