@@ -5,6 +5,11 @@
   "version": "0.1.0",
   "publisher": "chrisshaw",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/chrisshaw/helpful-little-scripts",
+    "directory": "vscode-redline"
+  },
   "engines": {
     "vscode": "^1.80.0"
   },
