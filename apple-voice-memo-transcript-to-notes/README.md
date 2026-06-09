@@ -37,6 +37,20 @@ cd helpful-little-scripts/apple-voice-memo-transcript-to-notes
 chmod +x main.py watch-and-process.sh
 ```
 
+#### Build the Full Disk Access launcher
+
+Voice Memos recordings are TCC-protected, so the agent needs **Full Disk Access**
+to read them. To avoid granting that to the shared system `/bin/bash`, launchd
+runs a tiny dedicated launcher (`voicememo-runner`, see `voicememo-runner.c`) and
+**only that binary** gets the grant. It spawns `bash` as a child, so the single
+grant covers the whole pipeline (`bash`, `find`, `python`) without touching the
+system shell.
+
+```zsh
+mkdir -p "$HOME/Library/Application Support/voicememos-to-notes"
+cc -O2 -o "$HOME/Library/Application Support/voicememos-to-notes/voicememo-runner" voicememo-runner.c
+```
+
 #### Install the launchd agent
 
 ```zsh
@@ -50,9 +64,23 @@ Verify it's loaded:
 launchctl list | grep voicememos
 ```
 
-#### Permissions (if needed)
+#### Grant Full Disk Access (required)
 
-System Settings → Privacy & Security → Full Disk Access → enable for `/bin/bash` (or Terminal.app).
+System Settings → Privacy & Security → Full Disk Access → click `+`, press ⌘⇧G, and paste:
+
+```
+~/Library/Application Support/voicememos-to-notes/voicememo-runner
+```
+
+Add it, toggle it **ON**, then reload the agent:
+
+```zsh
+launchctl kickstart -k gui/$(id -u)/com.chrisshaw.voicememos-to-notes
+```
+
+Only this launcher gets disk access — the system `/bin/bash` and your interactive
+shell do not. (If you ever rebuild `voicememo-runner`, macOS treats it as a new
+binary; re-confirm the Full Disk Access toggle.)
 
 ### How it works
 
@@ -100,8 +128,8 @@ rm ~/Library/LaunchAgents/com.chrisshaw.voicememos-to-notes.plist
 
 ## Troubleshooting
 - "(no embedded transcript)": the transcript should arrive automatically on the next file update. You can also open the memo in Voice Memos to prompt Apple to embed it.
-- Nothing happens: run `launchctl list | grep voicememos` to check the agent is loaded. Check the log file for errors.
-- Permissions: ensure Full Disk Access is granted (see setup).
+- Nothing happens: run `launchctl list | grep voicememos` to check the agent is loaded. Check the log file — if it says `Cannot read the Recordings folder — "Operation not permitted"`, Full Disk Access isn't granted to `voicememo-runner` (see setup).
+- Permissions: ensure Full Disk Access is granted to `voicememo-runner` (see setup). A stale `1` in the second column of `launchctl list` is the last exit code — it clears after the next successful run.
 - Python not found: check that `/usr/bin/python3` exists, or update the shebang in `main.py`.
 
 <details>
