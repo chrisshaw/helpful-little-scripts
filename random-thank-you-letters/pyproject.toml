@@ -1,0 +1,7 @@
+[project]
+name = "random-thank-you-letters"
+version = "0.1.0"
+description = "Find someone on the internet who did something useful and thank them for it"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = ["anthropic>=1.0"]
